@@ -22,11 +22,46 @@ THE SOFTWARE.
 package proxy
 
 import (
-	"fmt";
+	"io";
 	"os";
+	"net";
 )
 
-func StartOn(addr string) (err os.Error) {
-	_, err = fmt.Println("Proxy would have started on:", addr);
+func ListenOn(addr string) (result os.Error) {
+	if listener, err := net.Listen("tcp", addr); err != nil {
+		result = err
+	} else {
+		result = StartOn(listener)
+	}
 	return;
+}
+
+func StartOn(l net.Listener) os.Error {
+	for {
+		if conn, err := l.Accept(); err != nil {
+			/* Not all errors from accept() mean we should kill
+			the whole server, but for now let's go ahead and behave
+			that way. TODO */
+			return err
+		} else {
+			if proxy, err := ProxyFor(conn); err != nil {
+				continue
+			} else {
+				go proxy.Start()
+			}
+		}
+	}
+	return nil;
+}
+
+type Proxy struct{
+	io.ReadWriteCloser;
+}
+
+func ProxyFor(rwc io.ReadWriteCloser) (*Proxy, os.Error) {
+	return &Proxy{rwc}, nil;
+}
+
+func (self *Proxy) Start() {
+	self.Close();
 }

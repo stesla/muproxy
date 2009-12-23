@@ -32,7 +32,7 @@ var addr = flag.String("addr", ":4242", "The port to listen on")
 
 func main() {
 	flag.Parse();
-	if err := proxy.StartOn(*addr); err != nil {
+	if err := proxy.ListenOn(*addr); err != nil {
 		fmt.Println("StartOn:", err);
 		os.Exit(1);
 	}
