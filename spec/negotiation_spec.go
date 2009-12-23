@@ -19,47 +19,24 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package proxy
+package main
 
 import (
-	"io";
-	"os";
-	"net";
+	. "specify";
+	"../src/proxy";
 )
 
-func ListenOn(addr string) (result os.Error) {
-	if listener, err := net.Listen("tcp", addr); err != nil {
-		result = err
-	} else {
-		result = StartOn(listener)
-	}
-	return;
-}
+func init() {
+	Describe("method negotiation", func() {
+		It("should refuse all methods", func(the Example) {
+			conn := newMockConn();
+			conn.Send("\x05\x01\x00");
 
-func StartOn(l net.Listener) os.Error {
-	for {
-		if conn, err := l.Accept(); err != nil {
-			/* Not all errors from accept() mean we should kill
-			the whole server, but for now let's go ahead and behave
-			that way. TODO */
-			return err
-		} else {
-			proxy := For(conn);
-			go proxy.Start()
-		}
-	}
-	return nil;
-}
+			p := proxy.For(conn);
+			p.Start();
 
-type Proxy struct {
-	io.ReadWriteCloser;
-}
-
-func For(rwc io.ReadWriteCloser) *Proxy {
-	return &Proxy{rwc}
-}
-
-func (self *Proxy) Start()	{
-	self.Write([]byte{0x05,0xFF});
-	self.Close();
+			the.Value(conn).Should(Receive("\x05\xFF"));
+			the.Value(conn).Should(BeClosed);
+		})
+	})
 }

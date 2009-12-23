@@ -19,47 +19,42 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package proxy
+package main
 
 import (
-	"io";
+	"bytes";
+	"fmt";
 	"os";
-	"net";
+	"strings";
 )
 
-func ListenOn(addr string) (result os.Error) {
-	if listener, err := net.Listen("tcp", addr); err != nil {
-		result = err
+func Receive(s string) *receiveMatcher { return (*receiveMatcher)(&s); }
+type receiveMatcher string;
+func (s receiveMatcher) Bytes() []byte { return strings.Bytes((string)(s)) }
+func (s receiveMatcher) Should(val interface{}) (err os.Error) {
+	if conn, ok := val.(*MockConn); !ok {
+		err = os.NewError("Not a MockConn")
 	} else {
-		result = StartOn(listener)
-	}
-	return;
-}
-
-func StartOn(l net.Listener) os.Error {
-	for {
-		if conn, err := l.Accept(); err != nil {
-			/* Not all errors from accept() mean we should kill
-			the whole server, but for now let's go ahead and behave
-			that way. TODO */
-			return err
-		} else {
-			proxy := For(conn);
-			go proxy.Start()
+		expected := s.Bytes();
+		actual := conn.ExtractBytes();
+		if !bytes.Equal(expected, actual) {
+			err = os.NewError(fmt.Sprintf("expected `%v` to be `%v`", actual, expected))
 		}
 	}
-	return nil;
+	return
 }
+func (s receiveMatcher) ShouldNot(val interface{}) os.Error { return os.NewError("matcher not implemented") }
 
-type Proxy struct {
-	io.ReadWriteCloser;
+const BeClosed closedMatcher = true;
+type closedMatcher bool;
+func (closedMatcher) Should(val interface{}) (err os.Error) {
+	if conn, ok := val.(*MockConn); !ok {
+		err = os.NewError("Not a MockConn")
+	} else {
+		if !conn.Closed() {
+			err = os.NewError("expected connection to be closed");
+		}
+	}
+	return
 }
-
-func For(rwc io.ReadWriteCloser) *Proxy {
-	return &Proxy{rwc}
-}
-
-func (self *Proxy) Start()	{
-	self.Write([]byte{0x05,0xFF});
-	self.Close();
-}
+func (closedMatcher) ShouldNot(val interface{}) os.Error { return os.NewError("matcher not implemented") }

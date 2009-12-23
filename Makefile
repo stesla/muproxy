@@ -32,4 +32,5 @@ format:
 	cd spec; gofmt -w *.go
 
 test:
-	cd spec; $(SPECIFY) *_spec.go
+	cd src; make
+	cd spec; $(SPECIFY) *.go

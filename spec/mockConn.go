@@ -19,47 +19,48 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package proxy
+package main
 
 import (
-	"io";
+	"bytes";
 	"os";
-	"net";
 )
 
-func ListenOn(addr string) (result os.Error) {
-	if listener, err := net.Listen("tcp", addr); err != nil {
-		result = err
-	} else {
-		result = StartOn(listener)
-	}
-	return;
+type MockConn struct {
+	closed bool;
+	input, output *bytes.Buffer;
 }
 
-func StartOn(l net.Listener) os.Error {
-	for {
-		if conn, err := l.Accept(); err != nil {
-			/* Not all errors from accept() mean we should kill
-			the whole server, but for now let's go ahead and behave
-			that way. TODO */
-			return err
-		} else {
-			proxy := For(conn);
-			go proxy.Start()
-		}
-	}
+func newMockConn() (result *MockConn) {
+	result = &MockConn{};
+	result.input = bytes.NewBufferString("");
+	result.output = bytes.NewBufferString("");
+	return
+}
+
+func (self *MockConn) Close() os.Error {
+	self.closed = true;
 	return nil;
 }
 
-type Proxy struct {
-	io.ReadWriteCloser;
+func (self *MockConn) Read(bytes []byte) (int, os.Error) {
+	return self.input.Read(bytes);
 }
 
-func For(rwc io.ReadWriteCloser) *Proxy {
-	return &Proxy{rwc}
+func (self *MockConn) Write(bytes []byte) (int, os.Error) {
+	return self.output.Write(bytes);
 }
 
-func (self *Proxy) Start()	{
-	self.Write([]byte{0x05,0xFF});
-	self.Close();
+func (self *MockConn) Send(s string) {
+	self.input = bytes.NewBufferString(s);
+}
+
+func (self *MockConn) ExtractBytes() (result []byte) {
+	result = self.output.Bytes();
+	self.output.Reset();
+	return
+}
+
+func (self *MockConn) Closed() bool {
+	return self.closed;
 }
