@@ -28,15 +28,15 @@ import (
 
 func init() {
 	Describe("method negotiation", func() {
-		It("should refuse all methods", func(the Example) {
+		It("should refuse all methods", func(e Example) {
 			conn := newMockConn();
 			conn.Send("\x05\x01\x00");
 
 			p := proxy.For(conn);
 			p.Start();
 
-			the.Value(conn).Should(Receive("\x05\xFF"));
-			the.Value(conn).Should(BeClosed);
+			e.Value(conn).Should(Receive("\x05\xFF"));
+			e.Value(conn).Should(BeClosed);
 		})
 	})
 }
