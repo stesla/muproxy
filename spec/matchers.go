@@ -24,12 +24,13 @@ package main
 import (
 	"bytes";
 	"fmt";
+	"io";
 	"os";
 )
 
-func mockConnTest(val interface{}, test func(*MockConn) os.Error) (err os.Error) {
-	if conn, ok := val.(*MockConn); !ok {
-		err = os.NewError("Not a MockConn")
+func mockConnTest(val interface{}, test func(*mockClient) os.Error) (err os.Error) {
+	if conn, ok := val.(*mockClient); !ok {
+		err = os.NewError("Not a mockClient")
 	} else {
 		err = test(conn)
 	}
@@ -41,10 +42,10 @@ func Receive(b []byte) receiveMatcher	{ return receiveMatcher(b) }
 type receiveMatcher []byte
 
 func (b receiveMatcher) Should(val interface{}) (err os.Error) {
-	return mockConnTest(val, func(conn *MockConn) os.Error {
-		conn.WaitForOutput();
+	return mockConnTest(val, func(conn *mockClient) os.Error {
 		expected := ([]byte)(b);
-		actual := conn.ExtractBytes();
+		actual := make([]byte, len(expected));
+		io.ReadFull(conn, actual);
 		if !bytes.Equal(expected, actual) {
 			return os.NewError(fmt.Sprintf("expected `%v` to be `%v`", actual, expected))
 		}
@@ -60,7 +61,7 @@ const BeClosed closedMatcher = true
 type closedMatcher bool
 
 func (closedMatcher) Should(val interface{}) os.Error {
-	return mockConnTest(val, func(conn *MockConn) os.Error {
+	return mockConnTest(val, func(conn *mockClient) os.Error {
 		if !conn.Closed() {
 			return os.NewError("expected connection to be closed")
 		}
@@ -68,7 +69,7 @@ func (closedMatcher) Should(val interface{}) os.Error {
 	})
 }
 func (closedMatcher) ShouldNot(val interface{}) os.Error {
-	return mockConnTest(val, func(conn *MockConn) os.Error {
+	return mockConnTest(val, func(conn *mockClient) os.Error {
 		if conn.Closed() {
 			return os.NewError("expected connection not to be closed")
 		}

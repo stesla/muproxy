@@ -26,43 +26,90 @@ import (
 	"os";
 )
 
-type MockConn struct {
-	closed		bool;
-	input, output	*bytes.Buffer;
-	wch		chan bool;
-}
+const (
+	bufferSize	= 512;
+	chanSize	= 8;
+)
 
-func newMockConn() (result *MockConn) {
-	result = &MockConn{};
-	result.input = bytes.NewBufferString("");
-	result.output = bytes.NewBufferString("");
-	result.wch = make(chan bool, 1);
+func newBuffer() []byte	{ return make([]byte, bufferSize)[0:0] }
+
+func fillBuf(ch <-chan []byte, buf *bytes.Buffer) (isClosed bool) {
+	bytes := <-ch;
+	if bytes != nil {
+		buf.Write(bytes)
+	} else {
+		isClosed = closed(ch)
+	}
 	return;
 }
 
-func (self *MockConn) Close() os.Error {
-	self.closed = true;
+func mockConnection() (rwc *mockServer, client *mockClient) {
+	in := make(chan []byte, chanSize);
+	out := make(chan []byte, chanSize);
+	rwc = &mockServer{in: in, out: out, buf: bytes.NewBuffer(newBuffer())};
+	client = &mockClient{in: in, out: out, buf: bytes.NewBuffer(newBuffer())};
+	return;
+}
+
+type mockServer struct {
+	in	<-chan []byte;
+	out	chan<- []byte;
+
+	closed	bool;
+	buf	*bytes.Buffer;
+}
+
+func (self *mockServer) Read(b []byte) (n int, err os.Error) {
+	if self.buf.Len() >= len(b) {
+		return self.buf.Read(b)
+	}
+
+	for !self.closed && self.buf.Len() < len(b) {
+		self.closed = fillBuf(self.in, self.buf)
+	}
+	return self.buf.Read(b);
+}
+
+func (self *mockServer) Write(b []byte) (n int, err os.Error) {
+	self.out <- b;
+	return len(b), nil;
+}
+
+func (self *mockServer) Close() os.Error {
+	close(self.out);
 	return nil;
 }
 
-func (self *MockConn) Read(bytes []byte) (int, os.Error) {
-	return self.input.Read(bytes)
+type mockClient struct {
+	in	chan<- []byte;
+	out	<-chan []byte;
+
+	closed	bool;
+	buf	*bytes.Buffer;
 }
 
-func (self *MockConn) Write(bytes []byte) (n int, err os.Error) {
-	n, err = self.output.Write(bytes);
-	self.wch <- true;
-	return;
+func (self *mockClient) Close()	{ close(self.in) }
+
+func (self *mockClient) Closed() bool {
+	if !self.closed {
+		bytes, ok := <-self.out;
+		if ok {
+			self.buf.Write(bytes);
+			self.closed = closed(self.out);
+		}
+	}
+	return self.closed;
 }
 
-func (self *MockConn) Send(s string)	{ self.input = bytes.NewBufferString(s) }
+func (self *mockClient) Read(b []byte) (n int, err os.Error) {
+	if self.buf.Len() >= len(b) {
+		return self.buf.Read(b)
+	}
 
-func (self *MockConn) ExtractBytes() (result []byte) {
-	result = self.output.Bytes();
-	self.output.Reset();
-	return;
+	for !self.closed && self.buf.Len() < len(b) {
+		self.closed = fillBuf(self.out, self.buf)
+	}
+	return self.buf.Read(b);
 }
 
-func (self *MockConn) Closed() bool	{ return self.closed }
-
-func (self *MockConn) WaitForOutput()	{ <-self.wch }
+func (self *mockClient) Send(b []byte)	{ self.in <- b }
