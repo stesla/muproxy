@@ -51,6 +51,16 @@ func fillBuf(ch <-chan []byte, buf *bytes.Buffer) (isClosed bool) {
 	return;
 }
 
+func readBuf(b []byte, ch <-chan []byte, buf *bytes.Buffer, closed *bool) (int, os.Error) {
+	if buf.Len() >= len(b) {
+		return buf.Read(b)
+	}
+	for !*closed && buf.Len() < len(b) {
+		*closed = fillBuf(ch, buf)
+	}
+	return buf.Read(b);
+}
+
 type mockServer struct {
 	in	<-chan []byte;
 	out	chan<- []byte;
@@ -59,15 +69,8 @@ type mockServer struct {
 	buf	*bytes.Buffer;
 }
 
-func (self *mockServer) Read(b []byte) (n int, err os.Error) {
-	if self.buf.Len() >= len(b) {
-		return self.buf.Read(b)
-	}
-
-	for !self.closed && self.buf.Len() < len(b) {
-		self.closed = fillBuf(self.in, self.buf)
-	}
-	return self.buf.Read(b);
+func (self *mockServer) Read(b []byte) (int, os.Error) {
+	return readBuf(b, self.in, self.buf, &self.closed)
 }
 
 func (self *mockServer) Write(b []byte) (n int, err os.Error) {
@@ -102,14 +105,7 @@ func (self *mockClient) Closed() bool {
 }
 
 func (self *mockClient) Read(b []byte) (n int, err os.Error) {
-	if self.buf.Len() >= len(b) {
-		return self.buf.Read(b)
-	}
-
-	for !self.closed && self.buf.Len() < len(b) {
-		self.closed = fillBuf(self.out, self.buf)
-	}
-	return self.buf.Read(b);
+	return readBuf(b, self.out, self.buf, &self.closed)
 }
 
 func (self *mockClient) Send(b []byte)	{ self.in <- b }
