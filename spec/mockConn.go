@@ -22,90 +22,21 @@ THE SOFTWARE.
 package main
 
 import (
-	"bytes";
-	"os";
+	"io";
 )
 
-const (
-	bufferSize	= 512;
-	chanSize	= 8;
-)
+const bufferSize	= 4096
 
-func mockConnection() (rwc *mockServer, client *mockClient) {
-	in := make(chan []byte, chanSize);
-	out := make(chan []byte, chanSize);
-	rwc = &mockServer{in: in, out: out, buf: bytes.NewBuffer(newBuffer())};
-	client = &mockClient{in: in, out: out, buf: bytes.NewBuffer(newBuffer())};
+func mockConnection() (client, server *mockConn) {
+	in := make(chan int, bufferSize);
+	out := make(chan int, bufferSize);
+	client = &mockConn{Reader:NewReader(out), WriteCloser:NewWriter(in)}
+	server = &mockConn{Reader:NewReader(in), WriteCloser:NewWriter(out)};
 	return;
 }
 
-func newBuffer() []byte	{ return make([]byte, bufferSize)[0:0] }
-
-func fillBuf(ch <-chan []byte, buf *bytes.Buffer) (isClosed bool) {
-	bytes := <-ch;
-	if bytes != nil {
-		buf.Write(bytes)
-	} else {
-		isClosed = closed(ch)
-	}
-	return;
+type mockConn struct {
+	io.Reader;
+	io.WriteCloser;
+	closed bool;
 }
-
-func readBuf(b []byte, ch <-chan []byte, buf *bytes.Buffer, closed *bool) (int, os.Error) {
-	if buf.Len() >= len(b) {
-		return buf.Read(b)
-	}
-	for !*closed && buf.Len() < len(b) {
-		*closed = fillBuf(ch, buf)
-	}
-	return buf.Read(b);
-}
-
-type mockServer struct {
-	in	<-chan []byte;
-	out	chan<- []byte;
-
-	closed	bool;
-	buf	*bytes.Buffer;
-}
-
-func (self *mockServer) Read(b []byte) (int, os.Error) {
-	return readBuf(b, self.in, self.buf, &self.closed)
-}
-
-func (self *mockServer) Write(b []byte) (n int, err os.Error) {
-	self.out <- b;
-	return len(b), nil;
-}
-
-func (self *mockServer) Close() os.Error {
-	close(self.out);
-	return nil;
-}
-
-type mockClient struct {
-	in	chan<- []byte;
-	out	<-chan []byte;
-
-	closed	bool;
-	buf	*bytes.Buffer;
-}
-
-func (self *mockClient) Close()	{ close(self.in) }
-
-func (self *mockClient) Closed() bool {
-	if !self.closed {
-		bytes, ok := <-self.out;
-		if ok {
-			self.buf.Write(bytes);
-			self.closed = closed(self.out);
-		}
-	}
-	return self.closed;
-}
-
-func (self *mockClient) Read(b []byte) (n int, err os.Error) {
-	return readBuf(b, self.out, self.buf, &self.closed)
-}
-
-func (self *mockClient) Send(b []byte)	{ self.in <- b }

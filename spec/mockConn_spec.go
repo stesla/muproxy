@@ -19,54 +19,44 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package main //chanio
+package main
 
 import (
-	"os";
+	. "specify";
 )
 
-type Reader struct {
-	ch <-chan int;
-}
+func init() {
+	Describe("mock connection", func() {
+		It("should echo", func(e Example) {
+			client, server := mockConnection();
+			done := make(chan bool, 1);
+			go func() {
+				buf := make([]byte, bufferSize);
+				for {
+					n, err := server.Read(buf);
+					if err != nil {
+						done <- true;
+						return;
+					}
+					server.Write(buf[0:n]);
+				}
+				done <- true;
+			}();
 
-func NewReader(ch <-chan int) *Reader { return &Reader{ch} }
+			buf := make([]byte, bufferSize);
 
-func (self *Reader) Read(b []byte) (n int, error os.Error) {
-	for len(b) > 0 {
-		switch c := <-self.ch; {
-		case c < 0:
-			if n > 0 {
-				b = b[0:0];
-				return
-			} else {
-				return n, os.EAGAIN
-			}
-		case c == 0 && closed(self.ch):
-			return n, os.EOF
-		default:
-			b[0] = byte(c);
-			b = b[1:];
-		}
-		n++;
-	}
-	return
-}
+			client.Write([]byte{'f','o','o'});
+			n, err := client.Read(buf);
+			e.Value(err).Should(Be(nil));
+			e.Value(string(buf[0:n])).Should(Be("foo"));
 
-type Writer struct {
-	ch chan<- int;
-}
+			client.Write([]byte{'b','a','r'});
+			n, err = client.Read(buf);
+			e.Value(err).Should(Be(nil));
+			e.Value(string(buf[0:n])).Should(Be("bar"));
 
-func NewWriter(ch chan<- int) *Writer { return &Writer{ch} }
-
-func (self *Writer) Write(b []byte) (n int, error os.Error) {
-	for _, c := range b {
-		self.ch <- int(c);
-	}
-	self.ch <- -1;
-	return len(b), nil
-}
-
-func (self *Writer) Close() os.Error {
-	close(self.ch);
-	return nil;
+ 			client.Close();
+			e.Value(<-done).Should(Be(true));
+		});
+	});
 }

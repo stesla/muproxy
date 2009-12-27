@@ -34,31 +34,29 @@ func init() {
 		- 0x00 passwordless
 		- 0x80 muproxy auth + world + character
 		*/
-		for c := 0x01; c < 0xFF; c++ {
+		for c := 0x01; c < 0xff; c++ {
 			if c == 0x80 {
 				continue
 			}
 			method := byte(c);
 			It(fmt.Sprintf("should refuse method 0x%X", c), func(e Example) {
 				conn := getClient(e);
-				conn.Send(methodRequest(method));
+				conn.Write(methodRequest(method));
 				e.Value(conn).Should(Receive(methodResponse(0xFF)));
-				e.Value(conn).Should(BeClosed);
+				e.Value(conn).Should(BeEndOfFile);
 			});
 		}
 
 		It("should accept passwordless", func(e Example) {
 			conn := getClient(e);
-			conn.Send(methodRequest(0x00));
+			conn.Write(methodRequest(0x00));
 			e.Value(conn).Should(Receive(methodResponse(0x00)));
-			e.Value(conn).ShouldNot(BeClosed);
 		});
 
 		It("should accept muproxy auth + world + character", func(e Example) {
 			conn := getClient(e);
-			conn.Send(methodRequest(0x80));
+			conn.Write(methodRequest(0x80));
 			e.Value(conn).Should(Receive(methodResponse(0x80)));
-			e.Value(conn).ShouldNot(BeClosed);
 		});
 
 		After(afterProxySpec);

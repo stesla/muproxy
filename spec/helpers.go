@@ -31,10 +31,10 @@ type join struct {
 	ch <-chan bool;
 }
 
-func getClient(c Context) *mockClient {
-	conn, ok := c.GetField("client").(*mockClient);
+func getClient(c Context) *mockConn {
+	conn, ok := c.GetField("client").(*mockConn);
 	if !ok {
-		c.Error(os.NewError("client is not a *mockClient"))
+		c.Error(os.NewError("client is not a *mockConn"))
 	}
 	return conn;
 }
@@ -48,7 +48,7 @@ func getJoin(c Context) <-chan bool {
 }
 
 func beforeProxySpec(e Example) {
-	server, client := mockConnection();
+	client, server := mockConnection();
 	e.SetField("client", client);
 	p := proxy.For(server);
 	e.SetField("proxy", p);

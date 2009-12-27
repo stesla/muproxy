@@ -28,9 +28,9 @@ import (
 	"os";
 )
 
-func mockConnTest(val interface{}, test func(*mockClient) os.Error) (err os.Error) {
-	if conn, ok := val.(*mockClient); !ok {
-		err = os.NewError("Not a mockClient")
+func mockConnTest(val interface{}, test func(*mockConn) os.Error) (err os.Error) {
+	if conn, ok := val.(*mockConn); !ok {
+		err = os.NewError("Not a mockConn")
 	} else {
 		err = test(conn)
 	}
@@ -42,7 +42,7 @@ func Receive(b []byte) receiveMatcher	{ return receiveMatcher(b) }
 type receiveMatcher []byte
 
 func (b receiveMatcher) Should(val interface{}) (err os.Error) {
-	return mockConnTest(val, func(conn *mockClient) os.Error {
+	return mockConnTest(val, func(conn *mockConn) os.Error {
 		expected := ([]byte)(b);
 		actual := make([]byte, len(expected));
 		io.ReadFull(conn, actual);
@@ -56,23 +56,23 @@ func (receiveMatcher) ShouldNot(val interface{}) os.Error {
 	return os.NewError("matcher not implemented")
 }
 
-const BeClosed closedMatcher = true
+const BeEndOfFile eofMatcher = true
 
-type closedMatcher bool
+type eofMatcher bool
 
-func (closedMatcher) Should(val interface{}) os.Error {
-	return mockConnTest(val, func(conn *mockClient) os.Error {
-		if !conn.Closed() {
-			return os.NewError("expected connection to be closed")
+func (eofMatcher) Should(val interface{}) os.Error {
+	return mockConnTest(val, func(c *mockConn) os.Error {
+		buf := make([]byte, bufferSize);
+		_, err := c.Read(make([]byte, bufferSize));
+		for err == os.EAGAIN {
+			_, err = c.Read(buf);
 		}
-		return nil;
+		if err != os.EOF {
+			return os.NewError("Expected end of file");
+		}
+		return nil
 	})
 }
-func (closedMatcher) ShouldNot(val interface{}) os.Error {
-	return mockConnTest(val, func(conn *mockClient) os.Error {
-		if conn.Closed() {
-			return os.NewError("expected connection not to be closed")
-		}
-		return nil;
-	})
+func (eofMatcher) ShouldNot(val interface{}) os.Error {
+	return os.NewError("not implemented");
 }
