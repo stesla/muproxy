@@ -21,22 +21,19 @@ THE SOFTWARE.
 */
 package main
 
-import (
-	. "specify";
-	"../src/proxy";
-)
+import . "specify";
 
 func init() {
 	Describe("method negotiation", func() {
+		Before(beforeProxySpec);
+
 		It("should refuse all methods", func(e Example) {
-			conn := newMockConn();
+			conn := getConnection(e);
 			conn.Send("\x05\x01\x00");
-
-			p := proxy.For(conn);
-			p.Start();
-
 			e.Value(conn).Should(Receive("\x05\xFF"));
 			e.Value(conn).Should(BeClosed);
-		})
+		});
+
+		After(afterProxySpec);
 	})
 }

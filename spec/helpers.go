@@ -22,47 +22,49 @@ THE SOFTWARE.
 package main
 
 import (
-	"bytes";
 	"os";
+	. "specify";
+	"../src/proxy";
 )
 
-type MockConn struct {
-	closed		bool;
-	input, output	*bytes.Buffer;
-	wch chan bool;
+type join struct {
+	ch <-chan bool;
 }
 
-func newMockConn() (result *MockConn) {
-	result = &MockConn{};
-	result.input = bytes.NewBufferString("");
-	result.output = bytes.NewBufferString("");
-	result.wch = make(chan bool, 1);
-	return;
+func getConnection(c Context) *MockConn {
+	conn, ok := c.GetField("connection").(*MockConn);
+	if !ok {
+		c.Error(os.NewError("connection not a *MockConn"))
+	}
+	return conn;
 }
 
-func (self *MockConn) Close() os.Error {
-	self.closed = true;
-	return nil;
+func getJoin(c Context) <-chan bool {
+	join, ok := c.GetField("join").(*join);
+	if !ok {
+		c.Error(os.NewError("join not a *join"))
+	}
+	return join.ch;
 }
 
-func (self *MockConn) Read(bytes []byte) (int, os.Error) {
-	return self.input.Read(bytes)
+func beforeProxySpec(e Example) {
+	c := newMockConn();
+	e.SetField("connection", c);
+	p := proxy.For(c);
+	e.SetField("proxy", p);
+	ch := make(chan bool, 1);
+	e.SetField("join", &join{ch});
+	go func() {
+		p.Start();
+		ch <- true;
+	}();
 }
 
-func (self *MockConn) Write(bytes []byte) (n int, err os.Error) {
-	n, err = self.output.Write(bytes);
-	self.wch <- true;
-	return
+func afterProxySpec(c Context) {
+	conn := getConnection(c);
+	ch := getJoin(c);
+	conn.Close();
+	if val, ok := <-ch; !(val && ok) {
+		c.Error(os.NewError("Proxy did not exit on close"))
+	}
 }
-
-func (self *MockConn) Send(s string)	{ self.input = bytes.NewBufferString(s) }
-
-func (self *MockConn) ExtractBytes() (result []byte) {
-	result = self.output.Bytes();
-	self.output.Reset();
-	return;
-}
-
-func (self *MockConn) Closed() bool	{ return self.closed }
-
-func (self *MockConn) WaitForOutput() { <-self.wch }

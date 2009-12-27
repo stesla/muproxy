@@ -34,32 +34,41 @@ func mockConnTest(val interface{}, test func(*MockConn) os.Error) (err os.Error)
 	} else {
 		err = test(conn)
 	}
-	return
+	return;
 }
 
-func Receive(s string) receiveMatcher { return (receiveMatcher)(s); }
-type receiveMatcher string;
-func (s receiveMatcher) Bytes() []byte { return strings.Bytes((string)(s)) }
+func Receive(s string) receiveMatcher	{ return (receiveMatcher)(s) }
+
+type receiveMatcher string
+
+func (s receiveMatcher) Bytes() []byte	{ return strings.Bytes((string)(s)) }
 func (s receiveMatcher) Should(val interface{}) (err os.Error) {
 	return mockConnTest(val, func(conn *MockConn) os.Error {
+		conn.WaitForOutput();
 		expected := s.Bytes();
 		actual := conn.ExtractBytes();
 		if !bytes.Equal(expected, actual) {
 			return os.NewError(fmt.Sprintf("expected `%v` to be `%v`", actual, expected))
 		}
-		return nil
-	});
+		return nil;
+	})
 }
-func (s receiveMatcher) ShouldNot(val interface{}) os.Error { return os.NewError("matcher not implemented") }
+func (s receiveMatcher) ShouldNot(val interface{}) os.Error {
+	return os.NewError("matcher not implemented")
+}
 
-const BeClosed closedMatcher = true;
-type closedMatcher bool;
+const BeClosed closedMatcher = true
+
+type closedMatcher bool
+
 func (closedMatcher) Should(val interface{}) os.Error {
 	return mockConnTest(val, func(conn *MockConn) os.Error {
 		if !conn.Closed() {
-			return os.NewError("expected connection to be closed");
+			return os.NewError("expected connection to be closed")
 		}
-		return nil
-	});
+		return nil;
+	})
 }
-func (closedMatcher) ShouldNot(val interface{}) os.Error { return os.NewError("matcher not implemented") }
+func (closedMatcher) ShouldNot(val interface{}) os.Error {
+	return os.NewError("matcher not implemented")
+}

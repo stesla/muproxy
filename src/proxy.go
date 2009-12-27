@@ -27,6 +27,10 @@ import (
 	"net";
 )
 
+const (
+	defaultBufferSize = 4096;
+)
+
 func ListenOn(addr string) (result os.Error) {
 	if listener, err := net.Listen("tcp", addr); err != nil {
 		result = err
@@ -45,7 +49,7 @@ func StartOn(l net.Listener) os.Error {
 			return err
 		} else {
 			proxy := For(conn);
-			go proxy.Start()
+			go proxy.Start();
 		}
 	}
 	return nil;
@@ -55,11 +59,9 @@ type Proxy struct {
 	io.ReadWriteCloser;
 }
 
-func For(rwc io.ReadWriteCloser) *Proxy {
-	return &Proxy{rwc}
-}
+func For(rwc io.ReadWriteCloser) *Proxy	{ return &Proxy{rwc} }
 
-func (self *Proxy) Start()	{
-	self.Write([]byte{0x05,0xFF});
+func (self *Proxy) Start() {
+	self.Write([]byte{0x05, 0xFF});
 	self.Close();
 }
