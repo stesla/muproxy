@@ -31,6 +31,14 @@ const (
 	chanSize	= 8;
 )
 
+func mockConnection() (rwc *mockServer, client *mockClient) {
+	in := make(chan []byte, chanSize);
+	out := make(chan []byte, chanSize);
+	rwc = &mockServer{in: in, out: out, buf: bytes.NewBuffer(newBuffer())};
+	client = &mockClient{in: in, out: out, buf: bytes.NewBuffer(newBuffer())};
+	return;
+}
+
 func newBuffer() []byte	{ return make([]byte, bufferSize)[0:0] }
 
 func fillBuf(ch <-chan []byte, buf *bytes.Buffer) (isClosed bool) {
@@ -40,14 +48,6 @@ func fillBuf(ch <-chan []byte, buf *bytes.Buffer) (isClosed bool) {
 	} else {
 		isClosed = closed(ch)
 	}
-	return;
-}
-
-func mockConnection() (rwc *mockServer, client *mockClient) {
-	in := make(chan []byte, chanSize);
-	out := make(chan []byte, chanSize);
-	rwc = &mockServer{in: in, out: out, buf: bytes.NewBuffer(newBuffer())};
-	client = &mockClient{in: in, out: out, buf: bytes.NewBuffer(newBuffer())};
 	return;
 }
 
