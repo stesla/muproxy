@@ -29,7 +29,7 @@ import (
 type MockConn struct {
 	closed		bool;
 	input, output	*bytes.Buffer;
-	wch chan bool;
+	wch		chan bool;
 }
 
 func newMockConn() (result *MockConn) {
@@ -52,7 +52,7 @@ func (self *MockConn) Read(bytes []byte) (int, os.Error) {
 func (self *MockConn) Write(bytes []byte) (n int, err os.Error) {
 	n, err = self.output.Write(bytes);
 	self.wch <- true;
-	return
+	return;
 }
 
 func (self *MockConn) Send(s string)	{ self.input = bytes.NewBufferString(s) }
@@ -65,4 +65,4 @@ func (self *MockConn) ExtractBytes() (result []byte) {
 
 func (self *MockConn) Closed() bool	{ return self.closed }
 
-func (self *MockConn) WaitForOutput() { <-self.wch }
+func (self *MockConn) WaitForOutput()	{ <-self.wch }

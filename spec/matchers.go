@@ -70,5 +70,10 @@ func (closedMatcher) Should(val interface{}) os.Error {
 	})
 }
 func (closedMatcher) ShouldNot(val interface{}) os.Error {
-	return os.NewError("matcher not implemented")
+	return mockConnTest(val, func(conn *MockConn) os.Error {
+		if conn.Closed() {
+			return os.NewError("expected connection not to be closed")
+		}
+		return nil;
+	})
 }

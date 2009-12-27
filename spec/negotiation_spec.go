@@ -21,18 +21,31 @@ THE SOFTWARE.
 */
 package main
 
-import . "specify";
+import (
+	"fmt";
+	. "specify";
+)
 
 func init() {
 	Describe("method negotiation", func() {
 		Before(beforeProxySpec);
 
-		It("should refuse all methods", func(e Example) {
-			conn := getConnection(e);
-			conn.Send("\x05\x01\x00");
-			e.Value(conn).Should(Receive("\x05\xFF"));
-			e.Value(conn).Should(BeClosed);
-		});
+		/* Refuse all methods except:
+		- 0x00 passwordless
+		- 0x80 muproxy auth + world + character
+		*/
+		for c := 0x01; c <= 0xff; c++ {
+			if c == 0x80 {
+				continue
+			}
+			title := fmt.Sprintf("should refuse method 0x%x", c);
+			It(title, func(e Example) {
+				conn := getConnection(e);
+				conn.Send("\x05\x01" + string([]byte{byte(c)}));
+				e.Value(conn).Should(Receive("\x05\xFF"));
+				e.Value(conn).Should(BeClosed);
+			});
+		}
 
 		After(afterProxySpec);
 	})
