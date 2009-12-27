@@ -68,3 +68,11 @@ func afterProxySpec(c Context) {
 		c.Error(os.NewError("Proxy did not exit on close"))
 	}
 }
+
+func methodRequest(m byte) []byte {
+	return []byte{0x05, 0x01, m};
+}
+
+func methodResponse(m byte) []byte {
+	return []byte{0x05, m};
+}

@@ -41,23 +41,23 @@ func init() {
 			method := byte(c);
 			It(fmt.Sprintf("should refuse method 0x%X", c), func(e Example) {
 				conn := getClient(e);
-				conn.Send([]byte{0x05, 0x01, method});
-				e.Value(conn).Should(Receive([]byte{0x05, 0xFF}));
+				conn.Send(methodRequest(method));
+				e.Value(conn).Should(Receive(methodResponse(0xFF)));
 				e.Value(conn).Should(BeClosed);
 			});
 		}
 
 		It("should accept passwordless", func(e Example) {
 			conn := getClient(e);
-			conn.Send([]byte{0x05, 0x01, 0x00});
-			e.Value(conn).Should(Receive([]byte{0x05, 0x00}));
+			conn.Send(methodRequest(0x00));
+			e.Value(conn).Should(Receive(methodResponse(0x00)));
 			e.Value(conn).ShouldNot(BeClosed);
 		});
 
 		It("should accept muproxy auth + world + character", func(e Example) {
 			conn := getClient(e);
-			conn.Send([]byte{0x05, 0x01, 0x80});
-			e.Value(conn).Should(Receive([]byte{0x05, 0x80}));
+			conn.Send(methodRequest(0x80));
+			e.Value(conn).Should(Receive(methodResponse(0x80)));
 			e.Value(conn).ShouldNot(BeClosed);
 		});
 
