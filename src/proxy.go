@@ -28,7 +28,11 @@ import (
 )
 
 const (
-	defaultBufferSize = 4096;
+	defaultBufferSize	= 4096;
+	passwordlessMethod	= 0x00;
+	muproxyMethod		= 0x80;
+	noMethod		= 0xFF;
+	version			= 0x05;
 )
 
 func ListenOn(addr string) (result os.Error) {
@@ -62,6 +66,52 @@ type Proxy struct {
 func For(rwc io.ReadWriteCloser) *Proxy	{ return &Proxy{rwc} }
 
 func (self *Proxy) Start() {
-	self.Write([]byte{0x05, 0xFF});
-	self.Close();
+	var err os.Error;
+	err = self.negotiateMethod();
+	if err != nil {
+		self.Close();
+		return;
+	}
+}
+
+func (self *Proxy) negotiateMethod() os.Error {
+	if method, err := self.selectMethod(); err != nil {
+		return err
+	} else {
+		if _, err := self.Write([]byte{version, method}); err != nil {
+			return err
+		}
+		if method == noMethod {
+			self.Close()
+		}
+	}
+	return nil;
+}
+
+func (self *Proxy) selectMethod() (method byte, error os.Error) {
+	buf := make([]byte, defaultBufferSize)[0:2];
+	if _, error = io.ReadFull(self, buf); error != nil {
+		method = noMethod
+	} else {
+		if buf[0] != version {
+			method, error = noMethod, os.NewError("Invalid version in request")
+		} else {
+			buf = buf[0:buf[1]];
+			if _, error = io.ReadFull(self, buf); error != nil {
+				method = noMethod
+			} else {
+				method = findAcceptableMethod(buf)
+			}
+		}
+	}
+	return;
+}
+
+func findAcceptableMethod(methods []byte) (method byte) {
+	for _, method = range methods {
+		if method == passwordlessMethod || method == muproxyMethod {
+			return
+		}
+	}
+	return noMethod;
 }

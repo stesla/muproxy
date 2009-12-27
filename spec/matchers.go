@@ -25,7 +25,6 @@ import (
 	"bytes";
 	"fmt";
 	"os";
-	"strings";
 )
 
 func mockConnTest(val interface{}, test func(*MockConn) os.Error) (err os.Error) {
@@ -37,15 +36,14 @@ func mockConnTest(val interface{}, test func(*MockConn) os.Error) (err os.Error)
 	return;
 }
 
-func Receive(s string) receiveMatcher	{ return (receiveMatcher)(s) }
+func Receive(b []byte) receiveMatcher	{ return receiveMatcher(b) }
 
-type receiveMatcher string
+type receiveMatcher []byte
 
-func (s receiveMatcher) Bytes() []byte	{ return strings.Bytes((string)(s)) }
-func (s receiveMatcher) Should(val interface{}) (err os.Error) {
+func (b receiveMatcher) Should(val interface{}) (err os.Error) {
 	return mockConnTest(val, func(conn *MockConn) os.Error {
 		conn.WaitForOutput();
-		expected := s.Bytes();
+		expected := ([]byte)(b);
 		actual := conn.ExtractBytes();
 		if !bytes.Equal(expected, actual) {
 			return os.NewError(fmt.Sprintf("expected `%v` to be `%v`", actual, expected))
@@ -53,7 +51,7 @@ func (s receiveMatcher) Should(val interface{}) (err os.Error) {
 		return nil;
 	})
 }
-func (s receiveMatcher) ShouldNot(val interface{}) os.Error {
+func (receiveMatcher) ShouldNot(val interface{}) os.Error {
 	return os.NewError("matcher not implemented")
 }
 
