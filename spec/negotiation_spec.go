@@ -24,6 +24,7 @@ package main
 import (
 	"fmt";
 	. "specify";
+	"../src/proxy";
 )
 
 func init() {
@@ -42,21 +43,37 @@ func init() {
 			It(fmt.Sprintf("should refuse method 0x%X", c), func(e Example) {
 				conn := getClient(e);
 				conn.Write(methodRequest(method));
-				e.Value(conn).Should(Receive(methodResponse(0xFF)));
+				e.Value(conn).Should(Receive(methodResponse(proxy.MethodNone)));
 				e.Value(conn).Should(BeEndOfFile);
 			});
 		}
 
 		It("should accept passwordless", func(e Example) {
 			conn := getClient(e);
-			conn.Write(methodRequest(0x00));
-			e.Value(conn).Should(Receive(methodResponse(0x00)));
+			conn.Write(methodRequest(proxy.MethodNoPassword));
+			e.Value(conn).Should(Receive(methodResponse(proxy.MethodNoPassword)));
 		});
+
+		It("should deny bind requests", func(e Example) {
+			conn := getClient(e);
+			negotiateMethod(e, conn);
+			conn.Write(socksMsg(proxy.ReqBind, proxy.AddrIP4, "10.1.2.3", 4000));
+			e.Value(conn).Should(Receive(socksMsg(proxy.CommandNotSupported, proxy.AddrIP4, "0.0.0.0", 0)));
+		});
+
+		It("should deny associate requests", func(e Example) {
+			conn := getClient(e);
+			negotiateMethod(e, conn);
+			conn.Write(socksMsg(proxy.ReqAssociate, proxy.AddrIP4, "10.1.2.3", 4000));
+			e.Value(conn).Should(Receive(socksMsg(proxy.CommandNotSupported, proxy.AddrIP4, "0.0.0.0", 0)));
+		});
+
+		It("should accept connect requests", nil);
 
 		It("should accept muproxy auth + world + character", func(e Example) {
 			conn := getClient(e);
 			conn.Write(methodRequest(0x80));
-			e.Value(conn).Should(Receive(methodResponse(0x80)));
+			e.Value(conn).Should(Receive(methodResponse(proxy.MethodMUProxy)));
 		});
 
 		After(afterProxySpec);

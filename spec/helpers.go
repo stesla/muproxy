@@ -22,7 +22,12 @@ THE SOFTWARE.
 package main
 
 import (
+	"bytes";
+	"encoding/binary";
+	"io";
 	"os";
+	"strconv";
+	"strings";
 	. "specify";
 	"../src/proxy";
 )
@@ -70,9 +75,47 @@ func afterProxySpec(c Context) {
 }
 
 func methodRequest(m byte) []byte {
-	return []byte{0x05, 0x01, m};
+	return []byte{proxy.Version, 1, m};
 }
 
 func methodResponse(m byte) []byte {
-	return []byte{0x05, m};
+	return []byte{proxy.Version, m};
+}
+
+func negotiateMethod(c Context, rw io.ReadWriter) {
+	rw.Write(methodRequest(proxy.MethodNoPassword));
+	if _, err := rw.Read(make([]byte,3)); err != nil {
+		c.Error(err)
+	}
+	return
+}
+
+func socksMsg(mtype, atype byte, addr string, port uint16) []byte {
+	buf := bytes.NewBuffer([]byte{proxy.Version, mtype, 0x00, atype});
+	switch atype {
+	case proxy.AddrIP4:
+		buf.Write(ip4Bytes(addr));
+	default:
+		panic("not implemented");
+	}
+	if err := binary.Write(buf, binary.BigEndian, port); err != nil {
+		panic("error encoding port");
+	}
+	return buf.Bytes();
+}
+
+func ip4Bytes(addr string) (buf []byte) {
+	buf = make([]byte, 4);
+	octets := strings.Split(addr, ".", 0);
+	if len(octets) != 4 {
+		panic("expected dotted quad");
+	}
+	for i, s := range octets {
+		if n, err := strconv.Atoi(s); err != nil {
+			panic(err.String());
+		} else {
+			buf[i] = byte(n)
+		}
+	}
+	return
 }

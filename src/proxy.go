@@ -28,11 +28,22 @@ import (
 )
 
 const (
+	MethodNoPassword	= 0x00;
+	MethodMUProxy		= 0x80;
+	MethodNone		= 0xFF;
+	Version			= 0x05;
+
+	AddrIP4 = 0x01;
+
+	ReqConnect = 0x01;
+	ReqBind = 0x02;
+	ReqAssociate = 0x03;
+
+	CommandNotSupported = 0x07;
+)
+
+const (
 	defaultBufferSize	= 4096;
-	passwordlessMethod	= 0x00;
-	muproxyMethod		= 0x80;
-	noMethod		= 0xFF;
-	version			= 0x05;
 )
 
 func ListenOn(addr string) (result os.Error) {
@@ -72,16 +83,18 @@ func (self *Proxy) Start() {
 		self.Close();
 		return;
 	}
+	self.Write([]byte{Version, 0x07, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+	self.Close();
 }
 
 func (self *Proxy) negotiateMethod() os.Error {
 	if method, err := self.selectMethod(); err != nil {
 		return err
 	} else {
-		if _, err := self.Write([]byte{version, method}); err != nil {
+		if _, err := self.Write([]byte{Version, method}); err != nil {
 			return err
 		}
-		if method == noMethod {
+		if method == MethodNone {
 			self.Close()
 		}
 	}
@@ -91,14 +104,14 @@ func (self *Proxy) negotiateMethod() os.Error {
 func (self *Proxy) selectMethod() (method byte, error os.Error) {
 	buf := make([]byte, defaultBufferSize)[0:2];
 	if _, error = io.ReadFull(self, buf); error != nil {
-		method = noMethod
+		method = MethodNone
 	} else {
-		if buf[0] != version {
-			method, error = noMethod, os.NewError("Invalid version in request")
+		if buf[0] != Version {
+			method, error = MethodNone, os.NewError("Invalid Version in request")
 		} else {
 			buf = buf[0:buf[1]];
 			if _, error = io.ReadFull(self, buf); error != nil {
-				method = noMethod
+				method = MethodNone
 			} else {
 				method = findAcceptableMethod(buf)
 			}
@@ -109,9 +122,9 @@ func (self *Proxy) selectMethod() (method byte, error os.Error) {
 
 func findAcceptableMethod(methods []byte) (method byte) {
 	for _, method = range methods {
-		if method == passwordlessMethod || method == muproxyMethod {
+		if method == MethodNoPassword || method == MethodMUProxy {
 			return
 		}
 	}
-	return noMethod;
+	return MethodNone;
 }
